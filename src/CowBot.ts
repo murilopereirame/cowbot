@@ -168,7 +168,8 @@ export class CowBot {
   };
 
   private downloadAttachment = async (url: string): Promise<string> => {
-    const tempFile = randomHexString();
+    const soundId = randomHexString();
+    const tempFile = `sounds/${soundId}`;
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(tempFile);
       https
@@ -189,8 +190,7 @@ export class CowBot {
               return reject("Invalid file type");
             }
 
-            fs.renameSync(tempFile, `sounds/${tempFile}`);
-            return resolve(tempFile);
+            return resolve(soundId);
           });
         })
         .on("error", (err) => {
