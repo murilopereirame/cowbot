@@ -6,7 +6,7 @@ import {
   entersState,
   StreamType,
 } from "@discordjs/voice";
-import { Sound } from "./SoundManager.js";
+import { Sound } from "./entity/Sound.js";
 
 class Player {
   private static instance?: Player;

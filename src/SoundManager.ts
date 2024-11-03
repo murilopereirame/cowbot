@@ -1,64 +1,79 @@
 import fs from "node:fs";
-
-export interface Sound {
-  value: string;
-  name: string;
-  file: string;
-}
+import { AppDataSource } from "./data-source.js";
+import { Sound } from "./entity/Sound.js";
 
 export class SoundManager {
-  private soundsList: Sound[];
-  private soundsLookupTable: Map<string, number> = new Map();
+  constructor() {}
 
-  constructor() {
-    const sounds = (JSON.parse(fs.readFileSync("config/sounds.json", "utf8")) ??
-      []) as Sound[];
-
-    sounds.forEach((sound, index) =>
-      this.soundsLookupTable.set(sound.value, index)
-    );
-
-    this.soundsList = sounds;
-  }
-
-  get sounds() {
-    return this.soundsList;
-  }
-
-  findSound = (name: string): Sound | undefined =>
-    this.soundsList[this.soundsLookupTable.get(name) ?? -1];
-
-  addSound = (fileIdentifier: string, name: string) => {
-    const newIndex =
-      this.soundsList.push({
-        name,
-        value: fileIdentifier,
-        file: `sounds/${fileIdentifier}`,
-      }) - 1;
-
-    this.soundsLookupTable.set(fileIdentifier, newIndex);
-
-    const encodedSoundsList = JSON.stringify(this.soundsList);
-    fs.writeFileSync("config/sounds.json", encodedSoundsList);
+  sounds = async (): Promise<Sound[]> => {
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    return await soundsRepository.find();
   };
 
-  removeSound = (soundIdentifier: string) => {
-    const soundIndex = this.soundsLookupTable.get(soundIdentifier) ?? -1;
+  findSound = async (name: string): Promise<Sound | null> => {
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    return await soundsRepository.findOne({ where: { value: name } });
+  };
 
-    if (soundIndex == null) {
+  addSound = async (fileIdentifier: string, name: string) => {
+    const file = `sounds/${fileIdentifier}`;
+    const sound = new Sound();
+    sound.file = file;
+    sound.name = name;
+    sound.value = fileIdentifier;
+    sound.playCount = 0;
+
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    soundsRepository.save(sound);
+  };
+
+  removeSound = async (soundIdentifier: string) => {
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    const sound = await soundsRepository.findOne({
+      where: { value: soundIdentifier },
+    });
+
+    if (sound == null) {
       return false;
     }
 
-    const sound = this.sounds[soundIndex];
-
     fs.unlinkSync(sound.file);
-
-    this.soundsLookupTable.delete(soundIdentifier);
-    this.sounds.splice(soundIndex, 1);
-
-    const encodedSoundsList = JSON.stringify(this.soundsList);
-    fs.writeFileSync("config/sounds.json", encodedSoundsList);
+    soundsRepository.remove(sound);
 
     return true;
+  };
+
+  increaseSoundPlayCount = async (soundIdentifier: string) => {
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    const result = await soundsRepository.increment(
+      { value: soundIdentifier },
+      "playCount",
+      1
+    );
+
+    return result.affected;
+  };
+
+  topFive = async (): Promise<Sound[]> => {
+    const soundsRepository = AppDataSource.getRepository(Sound);
+    const result = await soundsRepository.find({
+      take: 5,
+      order: { playCount: "DESC" },
+    });
+
+    return result;
+  };
+
+  statistics = async (): Promise<{
+    totalSounds: number;
+    totalPlays: number;
+  }> => {
+    const soundData = AppDataSource.getRepository(Sound)
+      .createQueryBuilder("sound")
+      .select("COUNT(*)", "totalSounds")
+      .addSelect("SUM(playCount)", "totalPlays")
+      .getRawOne();
+
+    return soundData;
   };
 }

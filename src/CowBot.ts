@@ -27,6 +27,8 @@ enum Actions {
   STOP = "stop",
   ADD_SOUND = "add",
   REMOVE_SOUND = "remove",
+  TOP_FIVE = "top5",
+  STATISTICS = "stats",
 }
 
 export class CowBot {
@@ -54,6 +56,7 @@ export class CowBot {
 
   private registerCommands = async () => {
     try {
+      const sounds = await this.soundManager.sounds();
       const commands = [
         new SlashCommandBuilder()
           .setName("sound")
@@ -63,7 +66,7 @@ export class CowBot {
               .setName("sound")
               .setDescription("Sound to play")
               .setRequired(true)
-              .addChoices(this.soundManager.sounds)
+              .addChoices(sounds)
           ),
         new SlashCommandBuilder()
           .setName("reload")
@@ -94,8 +97,14 @@ export class CowBot {
               .setName("name")
               .setRequired(true)
               .setDescription("Sound to be removed")
-              .addChoices(this.soundManager.sounds)
+              .addChoices(sounds)
           ),
+        new SlashCommandBuilder()
+          .setName("top5")
+          .setDescription("Shows the TOP FIVE most played sounds"),
+        new SlashCommandBuilder()
+          .setName("stats")
+          .setDescription("Displays the bot's statistics"),
       ].map((command) => command.toJSON());
 
       const rest = new REST({ version: "10" }).setToken(
@@ -139,7 +148,7 @@ export class CowBot {
         return interaction.reply("Select a sound to play!");
       }
 
-      const sound = this.soundManager.findSound(soundToPlay.toString());
+      const sound = await this.soundManager.findSound(soundToPlay.toString());
 
       if (!sound) {
         return interaction.reply("Sound not registered!");
@@ -161,6 +170,8 @@ export class CowBot {
       if (interaction.isRepliable()) {
         await interaction.reply("Playing now!");
       }
+
+      await this.soundManager.increaseSoundPlayCount(sound.value);
     } catch (err) {
       console.log(err);
       interaction.reply("Failed to play sound").catch(noOp);
@@ -267,6 +278,39 @@ export class CowBot {
     }
   };
 
+  private topFive = async (interaction: CommandInteraction) => {
+    try {
+      const topFive = await this.soundManager.topFive();
+      const rows = [
+        "***TOP FIVE SOUNDS***",
+        ...topFive.map(
+          (sound, index) =>
+            `**${index + 1}.** ${sound.name}  (${sound.playCount}x played)`
+        ),
+      ];
+
+      return interaction.reply(rows.join("\n"));
+    } catch (err) {
+      console.log(err);
+      interaction.reply("Failed to get the top five").catch(err);
+    }
+  };
+
+  private statistics = async (interaction: CommandInteraction) => {
+    try {
+      const statistics = await this.soundManager.statistics();
+
+      return interaction.reply(
+        `***COWBOT STATISTICS***\n` +
+          `Total Sounds: ${statistics.totalSounds}\n` +
+          `Total Plays: ${statistics.totalPlays ?? 0}`
+      );
+    } catch (err) {
+      console.log(err);
+      interaction.reply("Failed to get the statistics").catch(err);
+    }
+  };
+
   private setupListerners = async () => {
     this.client.on("ready", async () => {
       console.log("CowBot is ready to play!");
@@ -289,6 +333,12 @@ export class CowBot {
           break;
         case Actions.REMOVE_SOUND:
           this.removeSound(commandInteraction);
+          break;
+        case Actions.TOP_FIVE:
+          this.topFive(commandInteraction);
+          break;
+        case Actions.STATISTICS:
+          this.statistics(commandInteraction);
           break;
         default:
           commandInteraction.reply("Unknown command").catch(noOp);

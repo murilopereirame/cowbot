@@ -1,6 +1,7 @@
 config/config.json
 config/sounds.json
 sounds/
+config/*.sqlite
 
 # Logs
 logs
@@ -132,3 +133,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+.idea/
+.vscode/
+node_modules/
+build/
+tmp/
+temp/

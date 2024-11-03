@@ -1,4 +1,9 @@
+import "reflect-metadata";
+
 import { CowBot } from "./CowBot.js";
 import { SoundManager } from "./SoundManager.js";
+import { AppDataSource } from "./data-source.js";
 
-new CowBot(new SoundManager());
+AppDataSource.initialize()
+  .then(async () => new CowBot(new SoundManager()))
+  .catch((error) => console.log(error));
