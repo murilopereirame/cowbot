@@ -31,6 +31,8 @@ enum Actions {
   STATISTICS = "stats",
 }
 
+const MAX_COMMAND_CHOICES = 25;
+
 export class CowBot {
   private client: Client;
   private soundManager: SoundManager;
@@ -54,20 +56,91 @@ export class CowBot {
     await this.login();
   };
 
-  private registerCommands = async () => {
-    try {
-      const sounds = await this.soundManager.sounds();
-      const commands = [
+  private generateSoundCommands = async () => {
+    const sounds = await this.soundManager.sounds();
+    const soundsCount = sounds.length;
+    const commandsNeeded = Math.ceil(soundsCount / MAX_COMMAND_CHOICES);
+    const commands = [
+      new SlashCommandBuilder()
+        .setName("sound")
+        .setDescription("Plays a sound from library")
+        .addStringOption((option) =>
+          option
+            .setName("sound")
+            .setDescription("Sound to play")
+            .setRequired(true)
+            .addChoices(sounds.slice(0, MAX_COMMAND_CHOICES))
+        ),
+    ];
+
+    for (let i = 1; i < commandsNeeded; i++) {
+      const suggestions = sounds.slice(
+        i * MAX_COMMAND_CHOICES,
+        MAX_COMMAND_CHOICES * (i + 1)
+      );
+
+      commands.push(
         new SlashCommandBuilder()
-          .setName("sound")
+          .setName(`sound${i}`)
           .setDescription("Plays a sound from library")
           .addStringOption((option) =>
             option
               .setName("sound")
               .setDescription("Sound to play")
               .setRequired(true)
-              .addChoices(sounds)
-          ),
+              .addChoices(suggestions)
+          )
+      );
+    }
+
+    return commands;
+  };
+
+  private generateRemoveCommands = async () => {
+    const sounds = await this.soundManager.sounds();
+    const soundsCount = sounds.length;
+    const commandsNeeded = Math.ceil(soundsCount / MAX_COMMAND_CHOICES);
+    const commands = [
+      new SlashCommandBuilder()
+        .setName("remove")
+        .setDescription("Remove a sound from library")
+        .addStringOption((option) =>
+          option
+            .setName("name")
+            .setRequired(true)
+            .setDescription("Sound to be removed")
+            .addChoices(sounds.slice(0, MAX_COMMAND_CHOICES))
+        ),
+    ];
+
+    for (let i = 1; i < commandsNeeded; i++) {
+      const suggestions = sounds.slice(
+        i * MAX_COMMAND_CHOICES,
+        MAX_COMMAND_CHOICES * (i + 1)
+      );
+
+      commands.push(
+        new SlashCommandBuilder()
+          .setName(`remove${i}`)
+          .setDescription("Remove a sound from library")
+          .addStringOption((option) =>
+            option
+              .setName("name")
+              .setRequired(true)
+              .setDescription("Sound to be removed")
+              .addChoices(suggestions)
+          )
+      );
+    }
+
+    return commands;
+  };
+
+  private registerCommands = async () => {
+    try {
+      const sounds = await this.soundManager.sounds();
+      const commands = [
+        ...(await this.generateSoundCommands()),
         new SlashCommandBuilder()
           .setName("reload")
           .setDescription("Load newly added sounds"),
@@ -89,16 +162,7 @@ export class CowBot {
               .setRequired(true)
               .setDescription("Sound to be added")
           ),
-        new SlashCommandBuilder()
-          .setName("remove")
-          .setDescription("Remove a sound from library")
-          .addStringOption((option) =>
-            option
-              .setName("name")
-              .setRequired(true)
-              .setDescription("Sound to be removed")
-              .addChoices(sounds)
-          ),
+        ...(await this.generateRemoveCommands()),
         new SlashCommandBuilder()
           .setName("top5")
           .setDescription("Shows the TOP FIVE most played sounds"),
@@ -318,7 +382,11 @@ export class CowBot {
 
     this.client.on("interactionCreate", async (interaction: Interaction) => {
       const commandInteraction = interaction as CommandInteraction;
-      switch (commandInteraction.commandName) {
+      const cleanCommand = commandInteraction.commandName.replaceAll(
+        /[0-9]/g,
+        ""
+      );
+      switch (cleanCommand) {
         case Actions.PLAY:
           this.playSound(commandInteraction);
           break;
