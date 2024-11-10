@@ -40,6 +40,8 @@ class Player {
     return entersState(this.player, AudioPlayerStatus.Playing, 5000);
   };
 
+  isPlaying = () => this.player.state.status === AudioPlayerStatus.Playing;
+
   stop = async () => {
     this.player.stop(true);
   };

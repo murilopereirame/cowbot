@@ -2,11 +2,13 @@ import {
   DiscordGatewayAdapterCreator,
   entersState,
   joinVoiceChannel,
+  VoiceConnection,
   VoiceConnectionStatus,
 } from "@discordjs/voice";
 import {
   Attachment,
   Client,
+  Collection,
   CommandInteraction,
   GatewayIntentBits,
   Interaction,
@@ -36,6 +38,7 @@ const MAX_COMMAND_CHOICES = 25;
 export class CowBot {
   private client: Client;
   private soundManager: SoundManager;
+  private currentConnection?: VoiceConnection;
 
   constructor(soundManager: SoundManager) {
     this.client = new Client({
@@ -54,6 +57,35 @@ export class CowBot {
     await this.registerCommands();
     await this.setupListerners();
     await this.login();
+
+    setInterval(() => {
+      this.exitIfAlone();
+    }, 1000 * 60 * 10);
+  };
+
+  private exitIfAlone = async () => {
+    if (this.currentConnection) {
+      const channelId = this.currentConnection.joinConfig.channelId;
+      const guildId = this.currentConnection.joinConfig.guildId;
+
+      const guild = await this.client.guilds.cache
+        .find((guild) => guild.id === guildId)
+        .fetch();
+      const channel = await guild.channels.fetch(channelId);
+      const disconnect = () => {
+        this.currentConnection.destroy();
+        this.currentConnection = undefined;
+      };
+
+      if (!Player.getInstance().isPlaying()) {
+        disconnect();
+      } else if (
+        channel.members instanceof Collection &&
+        channel.members.size === 1
+      ) {
+        disconnect();
+      }
+    }
   };
 
   private generateSoundCommands = async () => {
@@ -226,6 +258,8 @@ export class CowBot {
       });
 
       await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+
+      this.currentConnection = connection;
 
       connection.subscribe(Player.getInstance().getPlayer());
 
