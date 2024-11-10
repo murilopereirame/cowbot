@@ -72,18 +72,14 @@ export class CowBot {
         .find((guild) => guild.id === guildId)
         .fetch();
       const channel = await guild.channels.fetch(channelId);
-      const disconnect = () => {
+
+      if (
+        !Player.getInstance().isPlaying() ||
+        (channel.members instanceof Collection && channel.members.size === 1)
+      ) {
+        console.log("Player in Idle or alone, disconecting...");
         this.currentConnection.destroy();
         this.currentConnection = undefined;
-      };
-
-      if (!Player.getInstance().isPlaying()) {
-        disconnect();
-      } else if (
-        channel.members instanceof Collection &&
-        channel.members.size === 1
-      ) {
-        disconnect();
       }
     }
   };
