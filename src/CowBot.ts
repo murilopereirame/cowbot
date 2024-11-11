@@ -29,7 +29,7 @@ enum Actions {
   STOP = "stop",
   ADD_SOUND = "add",
   REMOVE_SOUND = "remove",
-  TOP_FIVE = "top5",
+  TOP_FIVE = "top",
   STATISTICS = "stats",
 }
 
@@ -192,7 +192,7 @@ export class CowBot {
           ),
         ...(await this.generateRemoveCommands()),
         new SlashCommandBuilder()
-          .setName("top5")
+          .setName("top")
           .setDescription("Shows the TOP FIVE most played sounds"),
         new SlashCommandBuilder()
           .setName("stats")
